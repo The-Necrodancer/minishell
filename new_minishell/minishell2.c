@@ -22,6 +22,38 @@
 
 volatile sig_atomic_t interrupted = 0;
 
+
+// To add more commands, make sure to add a command identifier to 'typedef enum' and 'getCommand'
+// Enum representing command identifiers
+typedef enum {
+    CMD_EXIT,
+    CMD_CD,
+    CMD_PWD,
+    CMD_LF,
+    CMD_LP,
+    CMD_SEPT,
+    CMD_UNKNOWN // This should always be the last enum member
+} Command;
+
+// Function to convert command string to enum value
+Command getCommand(const char* cmd) {
+    if (strcmp(cmd, "exit") == 0) {
+        return CMD_EXIT;
+    } else if (strcmp(cmd, "cd") == 0) {
+        return CMD_CD;
+    } else if (strcmp(cmd, "pwd") == 0) {
+        return CMD_PWD;
+    } else if (strcmp(cmd, "lf") == 0) {
+        return CMD_LF;
+    } else if (strcmp(cmd, "lp") == 0) {
+        return CMD_LP;
+    } else if (strcmp(cmd, "sept") == 0) {
+        return CMD_SEPT;
+    } else {
+        return CMD_UNKNOWN;
+    }
+}
+
 void sigint_handler(int signum) {
     write(STDOUT_FILENO, "\n", 1); // Safely write a newline to stdout
     interrupted = 1;
@@ -90,9 +122,6 @@ void execute_lp() {
     }
     closedir(proc_dir);
 }
-
-
-
 
 void execute_cd(char* args) {
     char* path = args;
@@ -173,22 +202,21 @@ int main(void) {
         printf(BLUE "[%s]" DEFAULT " > ", cwd);
         fflush(stdout);
 
-        if (fgets(cmd, sizeof(cmd), stdin) == NULL && errno == EINTR) {
+        if (fgets(cmd, sizeof(cmd), stdin) == NULL) {
             if (interrupted) {
                 interrupted = 0;
                 continue;
             }
-            // if (errno == EINTR) {
-            //     continue; // If interrupted by signal
-            // }
+            if (errno == EINTR) {
+                continue; // If interrupted by signal
+            }
             fprintf(stderr, "Error: Failed to read from stdin. %s.\n", strerror(errno));
             continue;
         }
 
         if (interrupted) {
+            //printf("are we here?");
             interrupted = 0;
-            //printf("ligma balls");
-            printf("\n");
             continue;
         }
 
@@ -217,69 +245,64 @@ int main(void) {
         // printf("Total number of 'commands': %d\n", cmdCount);
 
         // Command logic (cd, exit, pwd, lf, lp, and others)
+        pid_t pid; // Declared pid for logic reasons
 
-        // 'exit' command
-        // To exit the minishell normally : D
-        if (strcmp(cm1, "exit") == 0) {
-            printf("Exiting minishell.\n");
-            exit(EXIT_SUCCESS); 
-        }
-
-        // 'cd' command
-        else if (strcmp(cm1, "cd") == 0) {
-            // fprintf(stdout, "Ass n' Balles %s.\n", cm2);
-            if (cmdCount > 2) {
-                fprintf(stderr, "Error: Too many arguments to cd.\n");
-            }
-            else {
-                execute_cd(cm2);
-            }
-        }
-
-        // 'pwd' command
-        else if (strcmp(cm1, "pwd") == 0) {
-            execute_pwd();
-        }
-
-        // 'lf' command
-        else if (strcmp(cm1, "lf") == 0) {
-            execute_lf();
-        }
-
-        // 'lp' command
-        else if (strcmp(cm1, "lp") == 0) {
-            execute_lp();
-        }
-
-        // :-)
-        else if (strcmp(cmd, "sept") == 0) {
-            printf("Do you remember the 21st night of September?\n");
-        }
-
-        else {
-            // This block is executed for commands not built into the shell.
-            pid_t pid = fork();
-            if (pid == -1) {
-                fprintf(stderr, "Error: fork() failed. %s.\n", strerror(errno));
-            } else if (pid == 0) {
-                // Child process
-                if (execlp(cm1, cm1, cm2, (char*) NULL) == -1) {
-                    fprintf(stderr, "Error: exec() failed. %s.\n", strerror(errno));
-                    exit(EXIT_FAILURE);
+        Command command = getCommand(cm1);
+        switch(command) {
+            case CMD_EXIT:
+                // 'exit' command
+                printf("Exiting minishell...\n");
+                exit(EXIT_SUCCESS);
+                break;
+            case CMD_CD:
+                // 'cd' command
+                if (cmdCount > 2) {
+                    fprintf(stderr, "Error: Too many arguments to cd.\n");
                 }
-            } else {
-                // Parent process
-                int status;
-                if (wait(&status) == -1) {
-                    if (errno == EINTR) {
-                        // If wait was interrupted by SIGINT. Don't print out an error scenario.
+                else {
+                    execute_cd(cm2);
+                }
+                break;
+            case CMD_PWD:
+                // 'pwd' command
+                execute_pwd();
+                break;
+            case CMD_LF:
+                // 'lf' command (essentiall a simplier 'ls' command)
+                execute_lf();
+                break;
+            case CMD_SEPT:
+                // custom 'sept' command
+                // Will add more to this later ;-)
+                printf("Do you remember the 21st night of September?");
+                break;
+            case CMD_UNKNOWN:
+            default:
+                // This block is executed for commands not built into the shell.
+                pid = fork();
+                if (pid == -1) {
+                    fprintf(stderr, "Error: fork() failed. %s.\n", strerror(errno));
+                } else if (pid == 0) {
+                    // Child process
+                    if (execlp(cm1, cm1, cm2, (char*) NULL) == -1) {
+                        fprintf(stderr, "Error: exec() failed. %s.\n", strerror(errno));
+                        exit(EXIT_FAILURE);
                         continue;
                     }
-                    else {
-                        fprintf(stderr, "Error: wait() failed. %s.\n", strerror(errno));
+                } else {
+                    // Parent process
+                    int status;
+                    if (wait(&status) == -1) {
+                        if (errno == EINTR) {
+                            // If wait was interrupted by SIGINT. Don't print out an error scenario.
+                            continue;
+                        }
+                        else {
+                            fprintf(stderr, "Error: wait() failed. %s.\n", strerror(errno));
+                        }
                     }
                 }
-            }
+                break;
         }
 
 
