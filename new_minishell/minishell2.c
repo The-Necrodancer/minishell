@@ -18,7 +18,6 @@
 
 #define BLUE "\x1b[34;1m"
 #define DEFAULT "\x1b[0m"
-#define LIGMA 2
 
 volatile sig_atomic_t interrupted = 0;
 
