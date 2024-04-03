@@ -186,7 +186,7 @@ int main(void) {
 
         if (interrupted) {
             interrupted = 0;
-            printf("ligma balls");
+            //printf("ligma balls");
             printf("\n");
             continue;
         }
